@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WHOOP Population Explorer — Dashboard 3</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #ffffff;
+    color: #1c1c1e;
+    padding: 28px 36px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 22px;
+  }
+  .kpi-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 26px;
+  }
+  .kpi-box {
+    border: 1.5px solid #1c1c1e;
+    border-radius: 6px;
+    padding: 10px 18px;
+    text-align: center;
+    min-width: 130px;
+    background: #fff;
+  }
+  .kpi-val {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1c1c1e;
+    display: block;
+  }
+  .kpi-label {
+    font-size: 10px;
+    color: #555;
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .kpi-oval {
+    border: 2px solid #2e7d32;
+    border-radius: 50px;
+    padding: 10px 20px;
+    text-align: center;
+    background: #fff;
+  }
+  .kpi-oval .kpi-val { color: #2e7d32; font-size: 20px; }
+  .kpi-oval .kpi-label { color: #2e7d32; }
+  .chart-section { margin-bottom: 28px; }
+  .chart-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #444;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chart-compare { font-size: 11px; color: #2e7d32; font-weight: 400; }
+  .chart-box {
+    border: 1.5px solid #1c1c1e;
+    border-radius: 8px;
+    background: #fff;
+    padding: 14px 16px 10px;
+  }
+  .legend-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #444;
+  }
+  .legend-sq {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    border: 0.5px solid rgba(0,0,0,0.15);
+  }
+  .heat-scale {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #888;
+  }
+  .heat-strip { display: flex; gap: 3px; }
+  .heat-cell-legend { width: 18px; height: 11px; border-radius: 2px; }
+  .tip {
+    position: absolute;
+    background: #1c1c1e;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 5px;
+    font-size: 11px;
+    pointer-events: none;
+    display: none;
+    line-height: 1.7;
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<h1>WHOOP Health Dataset — Population Explorer</h1>
+<p class="subtitle">286 users · 100,000 daily records · Dashboard 3</p>
+
+<div class="kpi-row">
+  <div class="kpi-box">
+    <span class="kpi-val">3,287</span>
+    <div class="kpi-label">Avg calories burned<br>kcal / day</div>
+  </div>
+  <div class="kpi-box">
+    <span class="kpi-val">27.7</span>
+    <div class="kpi-label">Workout duration<br>avg min / session</div>
+  </div>
+  <div class="kpi-box">
+    <span class="kpi-val">54%</span>
+    <div class="kpi-label">Completion<br>workout days</div>
+  </div>
+  <div class="kpi-box">
+    <span class="kpi-val">7.3 h</span>
+    <div class="kpi-label">Sleep hour<br>avg / night</div>
+  </div>
+  <div class="kpi-oval">
+    <span class="kpi-val">286</span>
+    <div class="kpi-label">users</div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<div class="chart-section">
+  <div class="chart-title"><span>Scatter: Calories vs Workout Duration</span></div>
+  <div class="chart-box">
+    <div id="scatter"></div>
+    <div class="legend-row" id="sc-leg"></div>
+  </div>
+</div>
+
+<div class="chart-section">
+  <div class="chart-title">
+    <span>Grouped bar: Sleep Architecture by Fitness Level</span>
+    <span class="chart-compare">compare ↗</span>
+  </div>
+  <div class="chart-box">
+    <div id="sleepbar"></div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-sq" style="background:#b0b0b0"></div>Light sleep (gray)</div>
+      <div class="legend-item"><div class="legend-sq" style="background:#4a90d9"></div>REM sleep (blue)</div>
+      <div class="legend-item"><div class="legend-sq" style="background:#e879a0"></div>Deep sleep (pink)</div>
+    </div>
+  </div>
+</div>
+
+
+<div class="chart-section">
+  <div class="chart-title"><span>Heatmap: Avg Strain by Gender &amp; Day of Week</span></div>
+  <div class="chart-box">
+    <div id="heatmap"></div>
+    <div class="heat-scale">
+      <span>Low strain</span>
+      <div class="heat-strip">
+        <div class="heat-cell-legend" style="background:#6baed6"></div>
+        <div class="heat-cell-legend" style="background:#74c476"></div>
+        <div class="heat-cell-legend" style="background:#fd8d3c"></div>
+        <div class="heat-cell-legend" style="background:#e6550d"></div>
+        <div class="heat-cell-legend" style="background:#a50f15"></div>
+      </div>
+      <span>High strain</span>
+    </div>
+  </div>
+</div>
+
+<div class="chart-section">
+  <div class="chart-title"><span>100% Bar Zone by Age</span></div>
+  <div class="chart-box">
+    <div id="zonebar"></div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-sq" style="background:#2e7d32"></div>≥67 Green zone</div>
+      <div class="legend-item"><div class="legend-sq" style="background:#e65100"></div>33–66 Yellow zone</div>
+      <div class="legend-item"><div class="legend-sq" style="background:#b71c1c"></div>&lt;33 Red zone</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const tip = document.getElementById("tip");
+function showTip(html){ tip.style.display="block"; tip.innerHTML=html; }
+function moveTip(e){ tip.style.left=(e.pageX+12)+"px"; tip.style.top=(e.pageY-28)+"px"; }
+function hideTip(){ tip.style.display="none"; }
+
+const M  = {top:30, right:180, bottom:52, left:68};
+const TW = 820, TH = 340;
+const IW = TW - M.left - M.right;
+const IH = TH - M.top  - M.bottom;
+
+function makeSvg(sel){
+  return d3.select(sel).append("svg")
+    .attr("width",TW).attr("height",TH).style("max-width","100%")
+    .append("g").attr("transform",`translate(${M.left},${M.top})`);
+}
+function styleAxis(g){
+  g.selectAll("text").style("font-size","11px").style("fill","#555");
+  g.selectAll("line,path").style("stroke","#aaa");
+}
+function gridLines(g, scale, ticks){
+  g.append("g").call(d3.axisLeft(scale).ticks(ticks).tickSize(-IW).tickFormat(""))
+   .call(g2=>{ g2.select(".domain").remove(); g2.selectAll("line").style("stroke","#e8e8e8").style("stroke-dasharray","3,3"); });
+}
+function xLabel(g,txt){
+  g.append("text").attr("x",IW/2).attr("y",IH+42).attr("text-anchor","middle")
+   .style("font-size","12px").style("fill","#555").text(txt);
+}
+function yLabel(g,txt){
+  g.append("text").attr("transform","rotate(-90)").attr("x",-IH/2).attr("y",-54)
+   .attr("text-anchor","middle").style("font-size","12px").style("fill","#555").text(txt);
+}
+
+
+const scData = [
+  {act:"W.Train",  dur:62, cal:420, col:"#ff9800"},
+  {act:"HIIT",     dur:45, cal:650, col:"#e53935"},
+  {act:"CrossFit", dur:55, cal:720, col:"#7b1fa2"},
+  {act:"Cycling",  dur:65, cal:540, col:"#212121"},
+  {act:"Swimming", dur:52, cal:510, col:"#2e7d32"},
+  {act:"Yoga",     dur:55, cal:240, col:"#64b5f6"},
+  {act:"Running",  dur:58, cal:580, col:"#1565c0"}
+];
+
+(function(){
+  const g = makeSvg("#scatter");
+  const x = d3.scaleLinear().domain([0,90]).range([0,IW]);
+  const y = d3.scaleLinear().domain([0,900]).range([IH,0]);
+
+  gridLines(g,y,5);
+  g.append("g").attr("transform",`translate(0,${IH})`).call(d3.axisBottom(x).ticks(6)).call(styleAxis);
+  g.append("g").call(d3.axisLeft(y).ticks(5).tickFormat(d=>d.toLocaleString())).call(styleAxis);
+  xLabel(g,"Workout duration (min) →");
+  yLabel(g,"Calories burned (kcal) ↑");
+
+  g.selectAll("circle").data(scData).enter()
+   .append("circle")
+   .attr("cx",d=>x(d.dur)).attr("cy",d=>y(d.cal))
+   .attr("r",11)
+   .attr("fill",d=>d.col).attr("opacity",0.88)
+   .attr("stroke","#fff").attr("stroke-width",1.5)
+   .style("cursor","pointer")
+   .on("mouseover",(e,d)=>showTip(`<b>${d.act}</b><br>Duration: ${d.dur} min<br>Calories: ${d.cal} kcal`))
+   .on("mousemove",moveTip).on("mouseout",hideTip);
+
+  const svgEl = d3.select("#scatter svg");
+  const leg = svgEl.append("g").attr("transform",`translate(${M.left+IW+20},${M.top})`);
+  leg.append("text").text("Activity").attr("y",-8)
+   .style("font-size","11px").style("font-weight","700").style("fill","#333");
+  scData.forEach((d,i)=>{
+    const row = leg.append("g").attr("transform",`translate(0,${i*24})`);
+    row.append("rect").attr("width",12).attr("height",12).attr("rx",2).attr("fill",d.col);
+    row.append("text").attr("x",17).attr("y",10).style("font-size","11px").style("fill","#444").text(d.act);
+  });
+})();
+
+
+const sleepData = [
+  {level:"Beginner",     light:4.60, rem:1.50, deep:1.10},
+  {level:"Intermediate", light:4.38, rem:1.64, deep:1.28},
+  {level:"Advanced",     light:4.20, rem:1.72, deep:1.38},
+  {level:"Elite",        light:4.00, rem:1.82, deep:1.58}
+];
+const slColors = {light:"#b0b0b0", rem:"#4a90d9", deep:"#e879a0"};
+const slLabels = {light:"Light sleep", rem:"REM sleep", deep:"Deep sleep"};
+
+(function(){
+  const g = makeSvg("#sleepbar");
+  const phases = ["light","rem","deep"];
+  const x0 = d3.scaleBand().domain(sleepData.map(d=>d.level)).range([0,IW]).padding(0.28);
+  const x1 = d3.scaleBand().domain(phases).range([0,x0.bandwidth()]).padding(0.06);
+  const y  = d3.scaleLinear().domain([0,6.5]).range([IH,0]);
+
+  gridLines(g,y,6);
+  g.append("g").attr("transform",`translate(0,${IH})`).call(d3.axisBottom(x0)).call(styleAxis);
+  g.append("g").call(d3.axisLeft(y).ticks(6).tickFormat(d=>d+"h")).call(styleAxis);
+  xLabel(g,"Fitness Level →");
+  yLabel(g,"Sleep hours ↑");
+
+  const grps = g.selectAll(".grp").data(sleepData).enter()
+    .append("g").attr("transform",d=>`translate(${x0(d.level)},0)`);
+
+  grps.selectAll("rect")
+    .data(d=>phases.map(ph=>({ph,val:d[ph],lvl:d.level})))
+    .enter().append("rect")
+    .attr("x",d=>x1(d.ph)).attr("y",d=>y(d.val))
+    .attr("width",x1.bandwidth()).attr("height",d=>IH-y(d.val))
+    .attr("fill",d=>slColors[d.ph]).attr("rx",2)
+    .attr("stroke","#fff").attr("stroke-width",0.5)
+    .on("mouseover",(e,d)=>showTip(`<b>${d.lvl}</b><br>${slLabels[d.ph]}: ${d.val.toFixed(2)} h`))
+    .on("mousemove",moveTip).on("mouseout",hideTip);
+
+  grps.selectAll("text.val")
+    .data(d=>phases.map(ph=>({ph,val:d[ph]})))
+    .enter().append("text").attr("class","val")
+    .attr("x",d=>x1(d.ph)+x1.bandwidth()/2).attr("y",d=>y(d.val)-4)
+    .attr("text-anchor","middle").style("font-size","9px").style("fill","#555")
+    .text(d=>d.val.toFixed(1));
+})();
+
+
+const heatData = [
+  {gender:"Male",   day:"Mon", strain:8.0 },
+  {gender:"Male",   day:"Tue", strain:8.2 },
+  {gender:"Male",   day:"Wed", strain:6.0 },
+  {gender:"Male",   day:"Thu", strain:11.0},
+  {gender:"Male",   day:"Fri", strain:14.5},
+  {gender:"Male",   day:"Sat", strain:8.5 },
+  {gender:"Male",   day:"Sun", strain:11.2},
+  {gender:"Female", day:"Mon", strain:5.5 },
+  {gender:"Female", day:"Tue", strain:13.0},
+  {gender:"Female", day:"Wed", strain:5.8 },
+  {gender:"Female", day:"Thu", strain:13.2},
+  {gender:"Female", day:"Fri", strain:5.5 },
+  {gender:"Female", day:"Sat", strain:11.0},
+  {gender:"Female", day:"Sun", strain:14.5}
+];
+
+(function(){
+  const days    = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const genders = ["Male","Female"];
+  const hW=820, hH=190;
+  const hM={top:28, right:180, bottom:30, left:80};
+  const hiW=hW-hM.left-hM.right;
+  const hiH=hH-hM.top-hM.bottom;
+
+  const svg = d3.select("#heatmap").append("svg")
+    .attr("width",hW).attr("height",hH).style("max-width","100%")
+    .append("g").attr("transform",`translate(${hM.left},${hM.top})`);
+
+  const xH = d3.scaleBand().domain(days).range([0,hiW]).padding(0.08);
+  const yH = d3.scaleBand().domain(genders).range([0,hiH]).padding(0.14);
+
+  const colorScale = d3.scaleQuantize()
+    .domain([4,15])
+    .range(["#6baed6","#74c476","#fd8d3c","#e6550d","#a50f15"]);
+
+  svg.append("g").attr("transform",`translate(0,${hiH})`)
+     .call(d3.axisBottom(xH).tickSize(0))
+     .call(g=>{ g.select(".domain").remove(); g.selectAll("text").style("font-size","12px").style("fill","#444"); });
+
+  svg.append("g").call(d3.axisLeft(yH).tickSize(0))
+     .call(g=>{ g.select(".domain").remove(); g.selectAll("text").style("font-size","12px").style("fill","#444"); });
+
+  svg.selectAll("rect.cell").data(heatData).enter()
+     .append("rect").attr("class","cell")
+     .attr("x",d=>xH(d.day)).attr("y",d=>yH(d.gender))
+     .attr("width",xH.bandwidth()).attr("height",yH.bandwidth())
+     .attr("rx",4).attr("fill",d=>colorScale(d.strain))
+     .attr("stroke","#fff").attr("stroke-width",2)
+     .on("mouseover",(e,d)=>showTip(`<b>${d.gender} · ${d.day}</b><br>Avg strain: ${d.strain}`))
+     .on("mousemove",moveTip).on("mouseout",hideTip);
+
+  svg.selectAll("text.val").data(heatData).enter()
+     .append("text").attr("class","val")
+     .attr("x",d=>xH(d.day)+xH.bandwidth()/2)
+     .attr("y",d=>yH(d.gender)+yH.bandwidth()/2+4)
+     .attr("text-anchor","middle")
+     .style("font-size","11px").style("font-weight","700")
+     .style("fill",d=>d.strain>9?"#fff":"#333")
+     .text(d=>d.strain.toFixed(1));
+
+  svg.append("text").attr("x",hiW/2).attr("y",-10)
+     .attr("text-anchor","middle")
+     .style("font-size","11px").style("fill","#888").text("Day of week →");
+
+  const lx = hiW+18;
+  const legColors=["#6baed6","#74c476","#fd8d3c","#e6550d","#a50f15"];
+  const legLabels=["Low (≤6.8)","Med-low (6.8–9.6)","Medium (9.6–12.4)","Med-high (12.4–13.6)","High (≥13.6)"];
+  svg.append("text").attr("x",lx).attr("y",0)
+     .style("font-size","10px").style("font-weight","700").style("fill","#333").text("Strain");
+  legColors.forEach((col,i)=>{
+    svg.append("rect").attr("x",lx).attr("y",8+i*20).attr("width",12).attr("height",12).attr("rx",2).attr("fill",col);
+    svg.append("text").attr("x",lx+16).attr("y",19+i*20)
+       .style("font-size","10px").style("fill","#555").text(legLabels[i]);
+  });
+})();
+
+
+const zoneData = [
+  {age:"18–29", red:1.8,  yellow:50.4, green:47.8},
+  {age:"30–39", red:2.4,  yellow:52.0, green:45.6},
+  {age:"40–49", red:3.1,  yellow:53.4, green:43.5},
+  {age:"50–64", red:3.8,  yellow:55.1, green:41.1}
+];
+
+(function(){
+  const keys   = ["red","yellow","green"];
+  const colors = {red:"#b71c1c", yellow:"#e65100", green:"#2e7d32"};
+  const labels = {red:"Red <33", yellow:"Yellow 33–66", green:"Green ≥67"};
+
+  const stacked = d3.stack().keys(keys)(zoneData);
+
+  const g = makeSvg("#zonebar");
+  const x = d3.scaleBand().domain(zoneData.map(d=>d.age)).range([0,IW]).padding(0.32);
+  const y = d3.scaleLinear().domain([0,100]).range([IH,0]);
+
+  g.append("g").call(d3.axisLeft(y).ticks(5).tickSize(-IW).tickFormat(""))
+   .call(g2=>{ g2.select(".domain").remove(); g2.selectAll("line").style("stroke","#e8e8e8"); });
+
+  g.append("g").attr("transform",`translate(0,${IH})`).call(d3.axisBottom(x)).call(styleAxis);
+  g.append("g").call(d3.axisLeft(y).ticks(5).tickFormat(d=>d+"%")).call(styleAxis);
+  xLabel(g,"Age group →");
+  yLabel(g,"% of days in recovery zone ↑");
+
+  const layer = g.selectAll(".layer").data(stacked).enter()
+    .append("g").attr("fill",d=>colors[d.key]);
+
+  layer.selectAll("rect")
+    .data(d=>d).enter().append("rect")
+    .attr("x",d=>x(d.data.age))
+    .attr("y",d=>y(d[1]))
+    .attr("height",d=>y(d[0])-y(d[1]))
+    .attr("width",x.bandwidth())
+    .on("mouseover",function(e,d){
+      const k=d3.select(this.parentNode).datum().key;
+      showTip(`<b>${d.data.age}</b><br>${labels[k]}: ${(d[1]-d[0]).toFixed(1)}%`);
+    })
+    .on("mousemove",moveTip).on("mouseout",hideTip);
+
+  layer.selectAll("text.pct")
+    .data(d=>d.map(pt=>({...pt, key:d.key})))
+    .enter().append("text").attr("class","pct")
+    .attr("x",d=>x(d.data.age)+x.bandwidth()/2)
+    .attr("y",d=>{
+      const segH = y(d[0]) - y(d[1]);
+      const midY = (y(d[0]) + y(d[1])) / 2;
+      return segH > 14 ? midY + 5 : -9999;
+    })
+    .attr("text-anchor","middle")
+    .style("font-size","12px").style("font-weight","700").style("fill","#fff")
+    .text(d=>{
+      const pct = d[1]-d[0];
+      return pct > 4 ? pct.toFixed(1)+"%" : "";
+    });
+
+  const svgEl = d3.select("#zonebar svg");
+  const legG = svgEl.append("g")
+    .attr("transform",`translate(${M.left+IW+20},${M.top+20})`);
+  keys.slice().reverse().forEach((k,i)=>{
+    const row = legG.append("g").attr("transform",`translate(0,${i*26})`);
+    row.append("rect").attr("width",13).attr("height",13).attr("rx",2).attr("fill",colors[k]);
+    row.append("text").attr("x",18).attr("y",11).style("font-size","11px").style("fill","#444").text(labels[k]);
+  });
+  legG.append("text").attr("x",0).attr("y",95)
+     .style("font-size","10px").style("fill","#888").text("Recovery zone");
+})();
+</script>
+</body>
+</html>
